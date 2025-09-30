@@ -1,0 +1,39 @@
+@startuml
+title (2) Read-Your-Writes vs eventual consistency
+
+actor "User Device A\n(щойно оновив)" as A
+actor "User Device B\n(інший регіон)" as B
+participant "Router/Proxy" as R
+participant "Primary" as Pri
+participant "Secondary (lagging)" as Sec
+
+== Одразу після оновлення ==
+A -> R : GET /users/{id}\n(Read-Your-Writes)
+alt Route-to-Primary / strong read
+  R -> Pri : read(id)
+  Pri --> R : latest(version=t)
+  R --> A : + бачить свої зміни
+else Route-to-Secondary / eventual read
+  R -> Sec : read(id)
+  Sec --> R : stale(version<t)
+  R --> A : - може бачити старе
+end
+
+== Через деякий час (після реплікації) ==
+Sec -> Pri : read-repair / anti-entropy
+Pri --> Sec : latest(version=t)
+note over Sec: репліка наздогнала
+
+== Інший пристрій ==
+B -> R : GET /users/{id}
+opt якщо B скеровано на Primary
+  R -> Pri : read(id)
+  Pri --> R : latest(version=t)
+  R --> B : + актуально
+end
+opt якщо B скеровано на Secondary до синхронізації
+  R -> Sec : read(id)
+  Sec --> R : stale(version<t)
+  R --> B : - тимчасово старе
+end
+@enduml

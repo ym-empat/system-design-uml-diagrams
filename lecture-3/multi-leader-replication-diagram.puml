@@ -1,0 +1,39 @@
+@startuml
+title Категорія 2A: Висока доступність/низька затримка • Multi-Leader (master–master)
+
+skinparam componentStyle rectangle
+skinparam wrapWidth 220
+skinparam shadowing false
+
+actor "Клієнти (регіон A)" as UA
+actor "Клієнти (регіон B)" as UB
+
+node "DC-A" {
+  component "Leader A\n(write+read)" as LA
+  component "Followers A\n(read-only)" as FA
+}
+
+node "DC-B" {
+  component "Leader B\n(write+read)" as LB
+  component "Followers B\n(read-only)" as FB
+}
+
+UA --> LA : Локальні записи/читання
+UB --> LB : Локальні записи/читання
+
+LA <--> LB : Двонаправлена реплікація\n(узгодження змін між лідерами)
+LA --> FA : Реплікація
+LB --> FB : Реплікація
+
+note bottom
+Конфлікти можливі (одночасні зміни одного ключа):
+- last-write-wins / версіонування
+- sticky-sessions для зменшення конфліктів
+end note
+
+legend right
+Використання: повідомлення, лайки
+Плюс: низька latency для регіонів; відсутність єдиної write точки відмови.
+Мінус: потрібна стратегія розвʼязання конфліктів.
+endlegend
+@enduml

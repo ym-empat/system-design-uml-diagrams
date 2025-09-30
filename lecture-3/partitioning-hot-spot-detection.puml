@@ -1,0 +1,29 @@
+@startuml
+title Обробка "гарячої точки" (Hot Spot)
+
+actor "Моніторинг" as Monitor
+participant "Shard S\n(гаряча секція)" as ShardS
+participant "Balancer" as Bal
+participant "Shard T\n(новий/вільний вузол)" as ShardT
+participant "Cache/Replicas" as Cache
+
+== Виявлення ==
+ShardS -> Monitor : Метрики (QPS, CPU, latency)
+Monitor -> Bal : Виявлено hot spot
+
+== Ребаланс ==
+Bal -> ShardS : Розділи діапазон ключів (split)
+ShardS -> ShardT : Міграція частини даних
+Bal -> Monitor : Оновлення конфігурації (новий розподіл)
+
+== Тимчасове розвантаження ==
+Bal -> Cache : Увімкнути кешування популярних ключів
+Bal -> ShardS : Читання перенаправити на репліки
+
+note right of Bal
+Дії для зменшення навантаження:
+1. Split/migrate (перенесення частини даних)
+2. Використати кеш (Redis/CDN)
+3. Читати з реплік (якщо hot spot у read)
+end note
+@enduml

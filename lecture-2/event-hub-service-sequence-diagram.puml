@@ -1,0 +1,51 @@
+@startuml
+title EventHub: сценарій "зареєструвався → купив квиток → приєднався до нетворкінгу"
+
+actor User
+participant "API Gateway" as API
+participant "Auth Service" as Auth
+participant "Event Service" as ES
+database "Document DB" as DDB
+participant "Ticketing Service" as TS
+database "Relational DB" as RDB
+participant "Networking Service" as NS
+database "Graph DB" as GDB
+queue "Event Bus" as BUS
+
+== Реєстрація ==
+User -> API : signUp(name, email, ...)
+API -> Auth : createUser(...)
+Auth -> RDB : INSERT User → user_id
+Auth --> API : user_id
+API -> BUS : UserRegistered{user_id}
+
+BUS -> NS : UserRegistered{user_id}
+NS -> GDB : MERGE (u:User {user_id})
+NS --> BUS : NetworkingUpdated
+
+== Перегляд подій ==
+User -> API : listEvents()
+API -> ES : getEvents()
+ES -> DDB : FIND events
+ES --> API : events{event_id,...}
+API --> User : список подій
+
+== Покупка квитка ==
+User -> API : buyTicket(event_id, payment...)
+API -> TS : createOrder(user_id, event_id)
+TS -> RDB : INSERT Ticket → ticket_id (ACID)
+TS --> API : OK{ticket_id}
+TS -> BUS : TicketPurchased{user_id, event_id, ticket_id}
+
+== Оновлення графа ==
+BUS -> NS : TicketPurchased{user_id, event_id}
+NS -> GDB : MERGE (u:User {user_id})\nMERGE (e:Event {event_id})\nMERGE (u)-[:ATTENDED {ts=now()}]->(e)
+NS --> BUS : NetworkingUpdated
+
+== Рекомендації ==
+User -> API : getRecommendations()
+API -> NS : suggestPeople(user_id)
+NS -> GDB : Cypher: спільні події/друзі
+NS --> API : список контактів
+API --> User : рекомендації
+@enduml

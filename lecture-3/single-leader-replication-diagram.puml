@@ -1,0 +1,34 @@
+@startuml
+title Категорія 1: Строга узгодженість • Single-Leader (master–slave)
+
+skinparam componentStyle rectangle
+skinparam wrapWidth 200
+skinparam shadowing false
+
+actor "Клієнти/Сервіси" as Clients
+
+node "Кластер БД" {
+  component "Leader\n(write+read)" as L
+  component "Follower A\n(read-only)" as F1
+  component "Follower B\n(read-only)" as F2
+}
+
+Clients --> L : Запис/оновлення\n(усі write тільки через Leader)
+Clients --> F1 : Читання
+Clients --> F2 : Читання
+
+L --> F1 : Реплікація змін
+L --> F2 : Реплікація змін
+
+note right of L
+- Визначає порядок транзакцій
+- Єдина точка запису => strong consistency
+- У разі збою: failover (визначення нового лідера)
+end note
+
+legend right
+Використання: фінанси, інвентар, де важлива консистентність.
+Плюс: простіше забезпечити порядок транзакцій.
+Мінус: простій на час failover; write-вузьке місце.
+endlegend
+@enduml

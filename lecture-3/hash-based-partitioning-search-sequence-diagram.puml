@@ -1,0 +1,35 @@
+@startuml
+title Пошук у hash-based: exact vs range
+
+actor Client
+participant "Edge Cache\n(CDN/Redis)" as Cache
+participant "Router/Proxy" as R
+participant "Partitioner\n(H)" as H
+participant "Shard[section]\nLeader/Followers" as S
+participant "Scatter/Gather\nCoordinator" as SG
+
+== Пошук конкретного запису (O(1)) ==
+Client -> Cache : GET user_id
+alt cache hit
+  Cache --> Client : profile
+else cache miss
+  Client -> R : GET user_id
+  R -> H : hash(user_id)
+  H --> R : sectionId
+  R -> S : read by key
+  S --> R : profile
+  R -> Cache : put(profile, TTL)
+  R --> Client : profile
+end
+
+== Діапазонний запит ==
+Client -> R : GET range [X..Y]
+R -> SG : fan-out to all sections
+SG -> S : parallel scan/map-reduce
+S --> SG : partial results
+SG --> R : merged, paginated
+R --> Client : result page
+note over SG
+Range у hash-світі неефективний: повний обхід/агрегація.
+end note
+@enduml

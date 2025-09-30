@@ -1,0 +1,41 @@
+@startuml
+title Категорія 2B: Висока доступність • Leaderless (quorum, eventual consistency)
+
+skinparam componentStyle rectangle
+skinparam wrapWidth 220
+skinparam shadowing false
+
+actor "Клієнт/Сервіс" as C
+
+node "Кластер вузлів" {
+  component "Node 1" as N1
+  component "Node 2" as N2
+  component "Node 3" as N3
+  component "Node 4" as N4
+  component "Node 5" as N5
+}
+
+C --> N1 : Запис
+C --> N3 : Запис
+C --> N5 : Запис
+
+C --> N2 : Читання
+C --> N4 : Читання
+
+N1 -[#gray]-> N2 : Anti-entropy / gossip
+N3 -[#gray]-> N4 : Read-repair при читанні
+N5 -[#gray]-> N1 : Фонове вирівнювання станів
+
+note left
+Кворум: w + r > n
+- write успішний, якщо підтвердили ≥ w вузлів
+- read повертає найсвіжішу версію від ≥ r вузлів
+- узгодженість: eventual, latency низька, доступність висока
+end note
+
+legend right
+Використання: стрічка, чат, метрики, логування.
+Плюс: приймає write під час збоїв вузлів/мережі.
+Мінус: тимчасові неузгодженості, складні операції через кілька ключів.
+endlegend
+@enduml

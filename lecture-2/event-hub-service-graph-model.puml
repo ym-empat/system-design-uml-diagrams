@@ -1,0 +1,60 @@
+@startuml
+title EventHub Networking (Graph Model) - UML Class Diagram
+
+' === Nodes ===
+class User <<node>> {
+  +userId: UUID
+  +name: String
+  +email: String
+  +joinedAt: DateTime
+  +interests: Set<String>
+}
+
+class Event <<node>> {
+  +eventId: UUID
+  +title: String
+  +date: DateTime
+  +location: String
+}
+
+class Topic <<node>> {
+  +topicId: UUID
+  +name: String
+}
+
+class Message <<node>> {
+  +messageId: UUID
+  +content: String
+  +sentAt: DateTime
+}
+
+' === Relationships (edges) ===
+' FRIEND: двонапрямний контакт (можна моделювати як два спрямовані або один неорієнтований)
+User "0..*" -- "0..*" User : <<FRIEND>>\n(since: Date, strength: int)
+
+' FOLLOWS: підписка (спрямований зв’язок)
+User "0..*" --> "0..*" User : <<FOLLOWS>>\n(since: Date)
+
+' ATTENDED: участь у події
+User "0..*" --> "0..*" Event : <<ATTENDED>>\n(attendedAt: DateTime)
+
+' INTERESTED_IN: інтерес користувача до теми
+User "0..*" -- "0..*" Topic : <<INTERESTED_IN>>
+
+' Messaging: відправник -> повідомлення -> отримувач
+User "1" --> "0..*" Message : <<SENT>>
+Message "1" --> "1" User : <<TO>>
+
+' (опційно) користувач може писати про подію
+'User "0..*" --> "0..*" Event : <<COMMENTED_ON>>
+
+note top of User
+  Вузол користувача; у графі містить ребра:
+  FRIEND, FOLLOWS, ATTENDED, INTERESTED_IN, SENT/TO.
+end note
+
+note bottom of Message
+  Зберігаємо як вузол, щоб легко будувати ланцюжки
+  переписок і рахувати ступінь зв’язку між користувачами.
+end note
+@enduml
