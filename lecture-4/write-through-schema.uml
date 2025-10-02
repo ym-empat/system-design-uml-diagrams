@@ -1,0 +1,13 @@
+@startuml
+actor Client
+participant "App" as A
+participant "Cache" as C
+database "DB" as D
+
+Client -> A: PUT(key, newValue)
+A -> C: put(key, newValue)
+C -> D: write(key, newValue)
+D --> C: ok
+C --> A: ok
+A --> Client: ok
+@enduml

@@ -1,0 +1,27 @@
+@startuml
+actor Client
+participant "App" as A
+participant "Cache" as C
+database "DB" as D
+
+== Write (Write Around) ==
+Client -> A: PUT(key, newValue)
+A -> D: write(key, newValue)
+D --> A: ok
+A --> Client: ok
+note right: Кеш не оновлюється при записі
+
+== Read after Write ==
+Client -> A: GET(key)
+A -> C: get(key)
+alt cache hit
+    C --> A: value
+    A --> Client: value
+else cache miss
+    C --> A: not found
+    A -> D: select(key)
+    D --> A: value
+    A -> C: set(key, value, TTL)
+    A --> Client: value
+end
+@enduml

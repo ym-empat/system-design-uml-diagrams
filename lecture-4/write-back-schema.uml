@@ -1,0 +1,19 @@
+@startuml
+actor Client
+participant "App" as A
+participant "Cache" as C
+database "DB" as D
+participant "Background Flusher" as F
+
+Client -> A: PUT(key, newValue)
+A -> C: put(key, newValue)
+C --> A: ok   # запис завершено швидко
+A --> Client: ok
+
+...пізніше, асинхронно...
+F -> C: read-dirty(key)
+C --> F: newValue
+F -> D: write(key, newValue)
+D --> F: ok
+F -> C: mark-clean(key)
+@enduml

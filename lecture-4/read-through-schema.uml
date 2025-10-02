@@ -1,0 +1,17 @@
+@startuml
+actor Client
+participant "App" as A
+participant "Cache" as C
+database "DB" as D
+
+Client -> A: GET(key)
+A -> C: get(key)
+alt hit
+  C --> A: value
+else miss
+  C -> D: load(key)
+  D --> C: value
+  C --> A: value
+end
+A --> Client: value
+@enduml

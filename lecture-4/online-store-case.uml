@@ -1,0 +1,53 @@
+@startuml
+actor User
+participant "Browser\n(Service Worker)" as B
+participant "CDN Edge" as CDN
+participant "Web/API" as S
+participant "App Cache\n(Redis)" as C
+database "DB" as D
+
+== First visit (cold) ==
+User -> B: Open product page
+B -> CDN: GET /img, /css, /js
+alt CDN miss (edge cold)
+  CDN -> S: fetch static
+  S --> CDN: static
+  CDN --> B: static (cache)
+else CDN hit
+  CDN --> B: static
+end
+
+B -> S: GET /api/product/{id}
+S -> C: get product:{id}, price:{id}, inventory:{id}
+alt app cache miss
+  C --> S: miss
+  S -> D: SELECT product, price, inventory
+  D --> S: rows
+  S -> C: SET product:{id} (TTL long)
+  S -> C: SET price:{id}, inventory:{id} (TTL short)
+  S --> B: JSON
+else app cache hit
+  C --> S: values
+  S --> B: JSON
+end
+
+== Second visit ~5 min later (warm, same region) ==
+User -> B: Open product page
+B -> CDN: GET /img, /css, /js
+CDN --> B: static (hit)
+
+B -> S: GET /api/product/{id}
+S -> C: get product:{id}
+C --> S: hit
+S -> C: get price:{id}, inventory:{id}
+alt TTL still valid
+  C --> S: hit
+  S --> B: JSON
+else TTL expired / invalidated
+  C --> S: miss
+  S -> D: SELECT price, inventory
+  D --> S: rows
+  S -> C: SET price:{id}, inventory:{id}
+  S --> B: JSON
+end
+@enduml
