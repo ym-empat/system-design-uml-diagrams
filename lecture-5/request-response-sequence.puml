@@ -1,0 +1,82 @@
+@startuml
+title API Gateway + Cloudflare Tunnel (Private Services Flow)
+
+skinparam shadowing false
+skinparam backgroundColor #ffffff
+skinparam sequence {
+  ArrowThickness 1.5
+  ActorBorderColor #333333
+  LifeLineBorderColor #AAAAAA
+  LifeLineBackgroundColor #f8f8f8
+  ParticipantBorderColor #555555
+  ParticipantBackgroundColor #e6f2ff
+  ParticipantFontColor #000000
+  BoxBackgroundColor #f2f2f2
+  BoxBorderColor #777777
+  ArrowColor #1a73e8
+  MessageFontColor #222222
+  NoteBackgroundColor #fff2b2
+  NoteBorderColor #d6b600
+}
+
+actor Student as U
+
+box "Edge Layer (Cloudflare Network)" #d9e7ff
+participant "Anycast Edge\n(WAF / DDoS / Bot Filter)" as Edge
+end box
+
+box "API Layer" #e6f7ff
+participant "API Gateway\n(Auth, Rate-limit,\nCaching, Aggregation)" as APIGW
+participant "Public Service:\nContent API" as CONTENT
+end box
+
+box "Private Network" #eafce3
+participant "Cloudflare Tunnel\n(Zero Trust, mTLS)" as TUN
+participant "Private Service:\nGrader" as GRADER
+participant "Private Service:\nAnalytics" as ANALYTICS
+end box
+
+== Login & Dashboard ==
+U -> Edge : HTTPS /dashboard
+Edge -> APIGW : Forward request\n(TLS offload, sanitize headers)
+APIGW -> APIGW : Verify token, apply rate limit,\ncheck cache
+alt Cache HIT
+  APIGW --> U : Return cached response
+else Cache MISS
+  par Get public data
+    APIGW -> CONTENT : GET /courses?user=U
+    CONTENT --> APIGW : course list
+  else Get grades (via Tunnel)
+    APIGW -> TUN : GET /grades?user=U
+    TUN -> GRADER : internal call
+    GRADER --> TUN : grades result
+    TUN --> APIGW : grades
+  else Get analytics (via Tunnel)
+    APIGW -> TUN : GET /stats?user=U
+    TUN -> ANALYTICS : internal call
+    ANALYTICS --> TUN : stats result
+    TUN --> APIGW : stats
+  end
+  APIGW -> APIGW : Aggregate & transform response
+  APIGW --> U : 200 OK (dashboard)
+end
+
+== Session affinity ==
+note over U, APIGW
+Session Affinity:
+User sticks to the same API Gateway / DC
+(using cookie or IP hash)
+end note
+
+== Health & Failover ==
+Edge -> APIGW : Next API call
+APIGW -> TUN : Request private Grader
+... Grader pool becomes CRITICAL ...
+TUN --> APIGW : 503 Unavailable
+APIGW -> TUN : Retry via backup region
+TUN -> GRADER : call backup
+GRADER --> TUN : OK
+TUN --> APIGW : OK
+APIGW --> U : 200 OK (recovered)
+
+@enduml

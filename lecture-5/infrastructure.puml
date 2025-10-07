@@ -1,0 +1,73 @@
+@startuml
+title Global + Regional Load Balancing (Cloudflare Architecture Example)
+
+skinparam backgroundColor #ffffff
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+skinparam package {
+  BorderColor #888888
+  BackgroundColor #f8f8f8
+  FontColor #000000
+}
+
+skinparam rectangle {
+  BackgroundColor #e6f2ff
+  BorderColor #4a90e2
+  FontColor #000000
+}
+
+skinparam arrow {
+  Color #1a73e8
+  FontColor #222222
+  Thickness 1.5
+}
+
+actor "Student (User)" as Student
+
+rectangle "Anycast DNS + GTM" as GTM {
+  rectangle "Global Traffic Manager\n(Geo / Latency / Weighted Routing)" as GTM_LB
+}
+
+package "Regional Infrastructure" #e8f5e9 {
+  package "Europe DC" #e3f2fd {
+    rectangle "L7 LB (HTTP/HTTPS)\nAPI / Web traffic" as EU_L7
+    rectangle "L4 LB (TCP/UDP)\nVideo / Streaming" as EU_L4
+    rectangle "Endpoint Pool: Web/API\n(api-1, api-2, web-1)" as EU_WEB
+    rectangle "Endpoint Pool: Video\n(video-1, video-2)" as EU_VIDEO
+  }
+
+  package "Americas DC" #fff3e0 {
+    rectangle "L7 LB\n(API / Web)" as US_L7
+    rectangle "L4 LB\n(Video / UDP)" as US_L4
+    rectangle "Endpoint Pool: Web/API\n(api-3, web-2)" as US_WEB
+    rectangle "Endpoint Pool: Video\n(video-3, video-4)" as US_VIDEO
+  }
+
+  package "APAC DC" #f3e5f5 {
+    rectangle "L7 LB\n(API / Web)" as AP_L7
+    rectangle "L4 LB\n(Video / UDP)" as AP_L4
+    rectangle "Endpoint Pool: Web/API\n(api-4, web-3)" as AP_WEB
+    rectangle "Endpoint Pool: Video\n(video-5)" as AP_VIDEO
+  }
+}
+
+rectangle "Health Monitors\nHTTP/TCP/Ping checks" as HM #fff9c4
+
+Student --> GTM_LB : 1. DNS query\nedtech.example.com
+GTM_LB --> Student : 2. Response:\nnearest region (Geo + RTT)
+Student --> EU_L7 : 3. HTTPS /dashboard
+EU_L7 --> EU_WEB : 4. Routed by algorithm\n(Round Robin / LORS)
+EU_L4 --> EU_VIDEO : 5. Video traffic\n(Least Connections)
+
+HM -[dotted]-> EU_WEB : Monitor health
+HM -[dotted]-> US_WEB
+HM -[dotted]-> AP_WEB
+
+EU_WEB -[#red,dashed]-> US_L7 : Failover if\npool below threshold
+note right of HM
+  Health Threshold = min healthy endpoints
+  Pool marked "Critical" if below threshold
+end note
+
+@enduml
