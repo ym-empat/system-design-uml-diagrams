@@ -1,0 +1,67 @@
+@startuml
+title Онлайн-замовлення їжі — послідовність API-взаємодій з позначенням протоколів
+
+actor Mobile
+participant "GraphQL API" as GQL
+participant "REST API" as REST
+participant "User Service" as User
+participant "Restaurant Service" as Resto
+participant "Order Service" as Order
+participant "Delivery Service" as Delivery
+participant "Analytics Service" as Analytics
+participant "Payment Gateway (SOAP)" as PayGW
+
+== Перегляд ресторанів ==
+Mobile -> GQL : query restaurants [GraphQL]
+GQL -> Resto : fetch menu + info [GraphQL resolver]
+Resto --> GQL : data
+GQL --> Mobile : response
+
+== Створення замовлення ==
+Mobile -> REST : POST /orders [REST]
+REST -> Order : createOrder() [REST]
+Order -> User : validate user [REST]
+User --> Order : OK
+
+== Оплата ==
+group Payment
+  Order -> PayGW : ProcessPayment() [SOAP]
+  alt success
+    PayGW --> Order : PaymentApproved [SOAP]
+    Order -> Analytics : OrderPaid [gRPC stream]
+  else failure
+    PayGW --> Order : PaymentDeclined [SOAP]
+    Order -> Analytics : PaymentFailed [gRPC stream]
+    Order --> REST : error
+    REST --> Mobile : payment failed
+  end
+end group
+
+== Доставка ==
+Order -> Delivery : CreateDelivery() [gRPC]
+Delivery --> Order : Ack
+Order --> REST : accepted
+REST --> Mobile : status = confirmed
+
+== Трекінг замовлення ==
+Mobile -> GQL : subscribe orderStatus [GraphQL Subscriptions]
+GQL -> Order : register status stream
+
+group Delivery status updates
+  Delivery -> Order : UpdateStatus(ASSIGNED) [gRPC]
+  Order -> Analytics : ASSIGNED [gRPC stream]
+  Order -> GQL : push ASSIGNED
+  GQL --> Mobile : ASSIGNED
+
+  Delivery -> Order : UpdateStatus(ON_ROUTE) [gRPC]
+  Order -> Analytics : ON_ROUTE [gRPC stream]
+  Order -> GQL : push ON_ROUTE
+  GQL --> Mobile : ON_ROUTE
+
+  Delivery -> Order : UpdateStatus(DELIVERED) [gRPC]
+  Order -> Analytics : DELIVERED [gRPC stream]
+  Order -> GQL : push DELIVERED
+  GQL --> Mobile : DELIVERED
+end group
+
+@enduml

@@ -1,0 +1,44 @@
+@startuml
+title Асинхронна комунікація у платформі онлайн-замовлень їжі
+
+actor "Користувач" as User
+participant "Order Service" as Order
+participant "RabbitMQ Exchange" as RMQ
+queue "Notification Queue" as NQ
+queue "Restaurant Queue" as RQ
+participant "Notification Service" as Notify
+participant "Restaurant Service" as Resto
+participant "Kafka Topic (OrderEvents)" as Kafka
+queue "Analytics Queue" as AQ
+queue "ML Queue" as MLQ
+queue "Audit Queue" as AuditQ
+participant "Analytics Service" as Analytics
+participant "ML Service" as ML
+participant "Audit Service" as Audit
+
+== Створення замовлення ==
+User -> Order : Створити замовлення
+
+== Публікація події ==
+Order -> RMQ : Publish OrderPlaced
+RMQ -> NQ : Route to Notification Queue
+RMQ -> RQ : Route to Restaurant Queue
+
+== Notification fan-out ==
+NQ -> Notify : Consume OrderPlaced
+Notify -> User : Надіслати push/email/SMS
+
+RQ -> Resto : Consume OrderPlaced
+
+== Подія в Kafka (аналітика, ML, аудит) ==
+Order -> Kafka : Publish OrderEvent
+
+Kafka -> AQ : Route to Analytics Queue
+Kafka -> MLQ : Route to ML Queue
+Kafka -> AuditQ : Route to Audit Queue
+
+AQ -> Analytics : Consume OrderEvent
+MLQ -> ML : Consume OrderEvent
+AuditQ -> Audit : Consume OrderEvent
+
+@enduml
