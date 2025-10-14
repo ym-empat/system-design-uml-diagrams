@@ -1,0 +1,58 @@
+@startuml
+title Real-time Chat (WebSocket Server + Backend Service)
+
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam ActorBorderColor #333
+skinparam LifeLineBorderColor #AAAAAA
+skinparam ParticipantBorderColor #555555
+
+actor Student as U
+participant "API Gateway" as GW
+participant "WebSocket Server" as WS
+participant "Chat Service\n(Business Logic)" as CHAT
+participant "Message Broker\n(Kafka/RabbitMQ)" as MQ
+database "Chat DB" as DB
+
+note right of WS
+- Тримає WebSocket-з'єднання
+- Приймає івенти від клієнта
+- Розсилає повідомлення від брокера
+- Не обробляє бізнес-логіку
+end note
+
+note right of CHAT
+- Валідація повідомлення
+- Перевірка доступу до кімнати
+- Збереження в БД
+- Публікація події в Kafka (roomId = topic)
+end note
+
+note right of MQ
+- Fan-out модель
+- Може обслуговувати багато WS-серверів
+- Надсилає повідомлення у відповідний топік
+end note
+
+== Connect ==
+U -> GW : HTTP GET /ws
+GW -> WS : Proxy Upgrade
+WS --> U : 101 Switching Protocols\nWebSocket open
+
+== Send message ==
+U -> WS : WS: send({text, roomId})
+WS -> CHAT : HTTP/gRPC: processMessage(...)
+CHAT -> DB : INSERT INTO messages
+DB --> CHAT : ok
+CHAT -> MQ : publish(topic=roomId,\npayload)
+
+== Broadcast ==
+MQ -> WS : consume(roomId)
+WS --> U : WS: message({text, sender, timestamp})
+
+note over WS, CHAT
+WebSocket Server — лише транспорт.
+Chat Service — джерело істини (validation, db, kafka).
+end note
+
+@enduml

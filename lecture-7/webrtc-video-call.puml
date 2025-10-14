@@ -1,0 +1,49 @@
+@startuml
+title WebRTC Video Call (Simplified)
+
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam ActorBorderColor #333
+skinparam ParticipantBorderColor #555
+skinparam NoteBackgroundColor #ffffcc
+skinparam NoteBorderColor #cccc00
+
+actor "Teacher" as T
+actor "Student" as S
+participant "Signaling Server" as SIG
+participant "STUN/TURN Server" as ICE
+
+== Call setup ==
+T -> SIG : createOffer()
+SIG -> S : offer
+S -> SIG : answer
+SIG -> T : answer
+
+T -> ICE : STUN request
+S -> ICE : STUN request
+
+note over T, S
+Клієнти отримують свої публічні IP:PORT для прямого з'єднання
+end note
+
+== Media connection ==
+T <-> S : Media stream (audio/video) via UDP + SRTP
+
+note over T, S
+Пряма передача медіа (P2P) без участі сигнального сервера
+end note
+
+alt Якщо P2P заблоковано
+  T <-> ICE : Relay media (TURN)
+  ICE <-> S : Relay media (TURN)
+
+  note over ICE
+  TURN використовується, якщо немає прямого шляху через NAT або Firewall
+  end note
+end
+
+== Завершення виклику ==
+T -> SIG : endCall
+SIG -> S : callEnded
+
+@enduml

@@ -1,0 +1,36 @@
+@startuml
+title Push Notifications: Server-Sent Events (SSE)
+
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam ActorBorderColor #333
+skinparam ParticipantBorderColor #555
+skinparam NoteBackgroundColor #fffacc
+skinparam NoteBorderColor #b5a100
+
+actor Student as U
+participant "API Gateway" as GW
+participant "SSE Server" as SSE
+participant "Assignment Service" as AS
+
+note right of SSE
+SSE Server:
+- Тримає відкриті HTTP-з’єднання
+- Надсилає події у форматі text/event-stream
+- Встановлює connection: keep-alive
+end note
+
+== Підключення ==
+U -> GW : GET /events\nAccept: text/event-stream
+GW -> SSE : proxy
+SSE --> U : 200 OK + event-stream (з’єднання тримається відкритим)
+
+note over U
+Браузер створює EventSource('/events') та обробляє події з потоку
+end note
+
+== Нова подія ==
+AS -> SSE : notify({event: new-assignment})
+SSE --> U : event: new-assignment\ndata: {...}
+
+@enduml

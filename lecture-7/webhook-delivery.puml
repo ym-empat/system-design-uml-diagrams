@@ -1,0 +1,43 @@
+@startuml
+title WebHook Delivery to External LMS
+
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam ActorBorderColor #333
+skinparam ParticipantBorderColor #555
+skinparam NoteBackgroundColor #fffacc
+skinparam NoteBorderColor #b5a100
+
+participant "Event Emitter\n(Assignment Service)" as EM
+participant "Webhook Dispatcher" as WH
+participant "External LMS\n(webhook URL)" as EXT
+database "DLQ / Retry Queue" as DLQ
+
+note right of WH
+Webhook Dispatcher:
+- Надсилає HTTP POST на вказаний endpoint
+- Перевіряє статус (200 OK або помилка)
+- У разі помилки додає в retry queue
+end note
+
+== Подія ==
+EM -> WH : assignment.created
+
+== Спроба доставки ==
+WH -> EXT : POST /webhook\n{event payload}
+
+alt 2xx OK
+  EXT --> WH : 200 OK
+else 4xx/5xx error або timeout
+  EXT --> WH : 5xx / error
+  WH -> DLQ : enqueue for retry
+end
+
+== Повторна спроба ==
+WH -> EXT : retry POST (backoff)
+
+note over EXT
+Має перевірку підпису (HMAC), idempotency key тощо
+end note
+
+@enduml
