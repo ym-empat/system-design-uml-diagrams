@@ -35,3 +35,9 @@ java -jar plantuml.jar diagram.puml
 - [System Design Interview Book](https://github.com/donnemartin/system-design-primer)
 - [High Scalability](http://highscalability.com/) - реальні кейси архітектур
 - [AWS Architecture Center](https://aws.amazon.com/architecture/) - референсні архітектури
+
+## Література
+
+- Designing Data-Intensive Applications (Martin Kleppmann)
+- Building Multi-Tenant SaaS Architectures (Tod Golding)
+- Software Architecture: The Hard Parts (Neal Ford, Mark Richards, Pramod Sadalage & Zhamak Dehghani)
